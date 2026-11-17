@@ -156,7 +156,13 @@ Vercel can't crawl sites or run the Python pipeline, so actions that need resear
 
 Deploys: the Vercel project `sprinto-outreach` is connected to this repo with Root Directory `web`, so every push to `main` redeploys production and other branches get preview URLs.
 
-Vercel env vars: `DATABASE_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `MY_EMAIL`, and optionally `RESEND_WEBHOOK_SECRET`. To capture delivery and bounce signals, add a Resend webhook pointing at `https://<app>/api/webhooks/resend`; unsigned requests are rejected.
+Vercel env vars: `DATABASE_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `MY_EMAIL`, `RESEND_WEBHOOK_SECRET`, and optionally `DASHBOARD_PASSWORD`.
+
+- **Password (optional):** set `DASHBOARD_PASSWORD` on Vercel and redeploy to put the whole dashboard behind HTTP Basic auth (any username). Unset, it is open. The webhook route is always excluded.
+- **Resend webhook:** registered for delivered, bounced, opened, clicked, complained and delayed events at `/api/webhooks/resend`; requests without a valid Svix signature are rejected.
+- **Weekly run:** `.github/workflows/weekly-run.yml` runs `migrate → stage1 → run` every Monday 03:30 UTC (and from Actions → Run workflow), using the `GEMINI_API_KEY`, `HUNTER_API_KEY` and `DATABASE_URL` repo secrets and the `HUNTER_MODE` repo variable (`live`: at most about 5 Hunter searches a week).
+
+Demo walkthrough: [docs/DEMO.md](docs/DEMO.md).
 
 ## Feedback loop ([`pipeline/feedback.py`](pipeline/feedback.py))
 The model has six stages: **Act → Signal → Capture → Store → Retrieve → Apply**. The first version only had Act (drafts and sends) and Signal (a reviewer reacting). The other four are now built:
