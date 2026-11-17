@@ -23,6 +23,14 @@ def test_title_aliases_and_word_boundaries():
     assert title_rule("Director of Marketing", rules, ICP) is None     # 'cto' inside 'Director' must not match
 
 
+def test_junior_titles_containing_senior_words_never_match():
+    rules = ICP.poc_rules["Series A"]
+    assert title_rule("Founder Associate", rules, ICP) is None
+    assert title_rule("Executive Assistant to the CEO", rules, ICP) is None
+    assert title_rule("Founder's Office Associate", rules, ICP) is None
+    assert title_rule("Co-founder", rules, ICP) == (2, "Co-founder")
+
+
 def test_series_a_prefers_cto_with_verified_high_confidence_email():
     pick, considered = pick_contact(EMAILS, "Series A", ICP)
     assert pick.rule == "CTO" and pick.email["value"] == "arjun@acme.io"   # not the 41%-confidence duplicate

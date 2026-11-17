@@ -26,14 +26,18 @@ from pipeline.stage1 import keyword_hits
 
 log = logging.getLogger(__name__)
 
-MIN_PHRASE_SUPPORT = 2        # a removed/added phrase must recur in this many sends to become a rule
+MIN_PHRASE_SUPPORT = 3        # a cut phrase must recur in this many sends before the validator enforces it
 MIN_HOOK_SUPPORT = 3          # outcomes per hook type before hook ordering changes
 MIN_INDUSTRY_SUPPORT = 2      # reviewer decisions per industry before rank changes
 MAX_INDUSTRY_ADJUST = 0.15
 POSITIVE_OUTCOMES = {"replied", "meeting"}
 NEGATIVE_OUTCOMES = {"no_reply", "not_interested"}
 STOP = {"the", "a", "an", "and", "or", "to", "of", "in", "on", "for", "with", "your", "you", "we", "our", "is",
-        "are", "it", "this", "that", "as", "at", "by", "be", "so", "can", "from", "hi", "i"}
+        "are", "it", "this", "that", "as", "at", "by", "be", "so", "can", "from", "hi", "i", "how", "see", "next",
+        "week", "us", "do", "not", "will", "more", "most", "all", "into", "out", "up"}
+# Facts that legitimately change per company: never learn a phrase rule from them.
+VOLATILE = {"series", "million", "billion", "mn", "bn", "m", "k", "usd", "eur", "gbp", "inr", "cr", "crore", "seed"}
+PHRASE_ENFORCE_PREFIX = "ngram:avoid:"
 
 
 # ---------------------------------------------------------------- shared helpers (pure)
@@ -55,13 +59,32 @@ def hook_group(field: str | None) -> str:
 
 
 def ngrams(text: str, n: int = 3) -> set[str]:
-    words = re.findall(r"[a-z][a-z'-]*", (text or "").lower())
+    """Word n-grams inside one sentence/line only, with at least two content words and no
+    per-company facts (amounts, stages): those are wording choices a reviewer can make a rule of."""
     grams = set()
-    for i in range(len(words) - n + 1):
-        g = words[i:i + n]
-        if sum(w not in STOP for w in g) >= 2:        # at least two content words
-            grams.add(" ".join(g))
+    for sentence in re.split(r"[.!?;:\n]+", (text or "").lower()):
+        words = re.findall(r"[a-z][a-z'-]+", sentence)
+        for i in range(len(words) - n + 1):
+            g = words[i:i + n]
+            if any(w in VOLATILE for w in g):
+                continue
+            if sum(w not in STOP for w in g) >= 2:
+                grams.add(" ".join(g))
     return grams
+
+
+def collapse_phrases(phrases: dict[str, list[int]], min_support: int) -> list[tuple[str, list[int]]]:
+    """Keep phrases with enough distinct sends; drop variants that share 2+ content words with a stronger one
+    ('screenshot consoles before' is the same edit as 'to screenshot consoles')."""
+    ranked = sorted(((p, sorted(set(ids))) for p, ids in phrases.items() if len(set(ids)) >= min_support),
+                    key=lambda x: (-len(x[1]), len(x[0])))
+    kept: list[tuple[str, list[int]]] = []
+    for p, ids in ranked:
+        content = {w for w in p.split() if w not in STOP}
+        if any(len(content & {w for w in k.split() if w not in STOP}) >= 2 for k, _ in kept):
+            continue
+        kept.append((p, ids))
+    return kept
 
 
 def phrase_diffs(pairs: list[tuple[int, str, str]]) -> tuple[dict[str, list[int]], dict[str, list[int]]]:
@@ -254,22 +277,16 @@ def learn(use_llm: bool = True) -> dict[str, Any]:
                WHERE kind IN ('override_qualify','override_drop') ORDER BY id""").fetchall()
 
     with db.connect() as conn:
-        # writer: phrases reviewers consistently cut or add (deterministic)
+        # writer: phrases reviewers consistently cut (deterministic; the validator enforces these exactly).
+        # Added wording is left to the LLM style lessons: an added n-gram alone is not an instruction.
         pairs = [(s["id"], s["payload"].get("original_body", ""), s["payload"].get("sent_body", ""))
                  for s in sends if (s["payload"].get("edit_rate") or 0) > 0.01]
-        removed, added = phrase_diffs(pairs)
-        for phrase, ids in removed.items():
-            if len(set(ids)) >= MIN_PHRASE_SUPPORT:
-                _upsert_learning(conn, "writer", "avoid_phrase", f"avoid:{phrase}",
-                                 f"Do not use the phrase '{phrase}'; reviewers removed it in {len(set(ids))} sends.",
-                                 {}, None, len(set(ids)), min(0.95, 0.5 + 0.1 * len(set(ids))), sorted(set(ids)), True)
-                summary["avoid_phrase"] += 1
-        for phrase, ids in added.items():
-            if len(set(ids)) >= MIN_PHRASE_SUPPORT:
-                _upsert_learning(conn, "writer", "prefer_phrase", f"prefer:{phrase}",
-                                 f"Reviewers added '{phrase}' in {len(set(ids))} sends; use similar wording.",
-                                 {}, None, len(set(ids)), min(0.9, 0.4 + 0.1 * len(set(ids))), sorted(set(ids)), True)
-                summary["prefer_phrase"] += 1
+        removed, _added = phrase_diffs(pairs)
+        for phrase, ids in collapse_phrases(removed, MIN_PHRASE_SUPPORT):
+            _upsert_learning(conn, "writer", "avoid_phrase", f"{PHRASE_ENFORCE_PREFIX}{phrase}",
+                             f"Do not use the phrase '{phrase}'; reviewers removed it in {len(ids)} sends.",
+                             {}, None, len(ids), min(0.95, 0.5 + 0.1 * len(ids)), ids, True)
+            summary["avoid_phrase"] += 1
 
         # hook: which kind of hook earns replies (deterministic, smoothed)
         hook_out = [(o["context"].get("hook_group", "other"), o["payload"].get("outcome")) for o in outcomes]

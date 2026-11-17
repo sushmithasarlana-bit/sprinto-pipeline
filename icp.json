@@ -77,7 +77,7 @@
   },
   "poc_title_aliases": {
     "CTO": ["cto", "chief technology officer"],
-    "VP Engineering": ["vp engineering", "vp of engineering", "vice president engineering", "vice president of engineering", "head of engineering"],
+    "VP Engineering": ["vp engineering", "vp of engineering", "vice president engineering", "vice president of engineering", "head of engineering", "director of engineering", "engineering director"],
     "Co-founder": ["co-founder", "cofounder", "founder"],
     "CISO": ["ciso", "chief information security officer"],
     "Head of Security": ["head of security", "director of security", "vp security", "head of information security"],

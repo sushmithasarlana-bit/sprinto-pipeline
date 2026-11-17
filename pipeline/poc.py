@@ -39,9 +39,13 @@ class Pick:
     reason: str
 
 
+JUNIOR_TITLE_WORDS = ["associate", "assistant", "intern", "office of", "in residence", "coordinator", "apprentice"]
+
+
 def title_rule(position: str | None, rules: list[str], icp: ICP) -> tuple[int, str] | None:
-    """Index + name of the highest-priority poc rule this job title satisfies."""
-    if not position:
+    """Index + name of the highest-priority poc rule this job title satisfies.
+    Junior roles that merely contain a senior word ("Founder Associate", "Assistant to the CTO") never match."""
+    if not position or keyword_hits(position, JUNIOR_TITLE_WORDS):
         return None
     for i, rule in enumerate(rules):
         if keyword_hits(position, icp.poc_title_aliases.get(rule, [rule.lower()])):

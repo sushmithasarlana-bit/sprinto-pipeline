@@ -242,7 +242,9 @@ def generate_for_company(company: dict, contact: dict, run_id: int | None = None
     lessons = feedback_loop.retrieve("writer", ctx)
     hook_prefs = feedback_loop.hook_preferences()
     hook_learning_ids = [r["id"] for r in feedback_loop.retrieve("hook", limit=50)] if hook_prefs else []
-    avoid = [l["key"].split(":", 1)[1] for l in lessons if l["kind"] == "avoid_phrase"]
+    # Only exact phrases the deterministic learner saw cut 3+ times are enforced; LLM lessons only guide the prompt.
+    avoid = [l["key"][len(feedback_loop.PHRASE_ENFORCE_PREFIX):] for l in lessons
+             if l["key"].startswith(feedback_loop.PHRASE_ENFORCE_PREFIX)]
 
     candidates = hook_candidates(catalog, icp, date.today(), hook_prefs or None)
     chosen = (company.get("chosen_hook") or {}).get("evidence_id")

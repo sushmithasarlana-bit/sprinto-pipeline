@@ -31,6 +31,22 @@ def test_phrase_diffs_find_what_reviewers_cut_and_add():
     assert "audit ready" not in removed
 
 
+def test_ngrams_ignore_line_breaks_amounts_and_stages():
+    grams = ngrams("Congrats on the $30m Series B in August.\n\nOpen to a quick call")
+    assert not any("series" in g or g.startswith("m ") for g in grams)       # per-company facts never become rules
+    assert not any("august open" in g for g in grams)                        # no phrase spans a sentence break
+
+
+def test_collapse_keeps_strongest_variant_and_needs_support():
+    from pipeline.feedback import collapse_phrases
+    kept = collapse_phrases({"to screenshot consoles": [1, 2, 3], "screenshot consoles before": [1, 2, 3],
+                             "audit fire drills": [1, 2, 3, 4], "code tools to": [1, 2]}, 3)
+    phrases = [p for p, _ in kept]
+    assert phrases[0] == "audit fire drills"
+    assert len([p for p in phrases if "screenshot" in p]) == 1
+    assert "code tools to" not in phrases                                    # only 2 sends: below support
+
+
 def test_hook_scores_are_smoothed_and_count_switches():
     s = hook_scores_from([("audit_signal", "replied"), ("audit_signal", "meeting"), ("funding", "no_reply"),
                           ("funding", "bounced")], [("funding", "audit_signal")])
