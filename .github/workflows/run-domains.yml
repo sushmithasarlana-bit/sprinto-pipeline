@@ -1,0 +1,65 @@
+name: Run on domains
+
+# Started from the dashboard's Run page (or by hand): research each domain end to end,
+# then auto-send validated drafts to MY_EMAIL. Flags and hook reviews wait for a human.
+on:
+  workflow_dispatch:
+    inputs:
+      domains:
+        description: "Comma-separated domains, e.g. acme.io, example.com (max 3)"
+        required: true
+        type: string
+      hunter_mode:
+        description: "live spends one Hunter search per qualified company"
+        type: choice
+        options: [live, mock]
+        default: live
+      trigger_id:
+        description: "Dashboard trigger id (optional)"
+        required: false
+        type: string
+
+concurrency:
+  group: pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      RESEND_FROM: ${{ secrets.RESEND_FROM }}
+      MY_EMAIL: ${{ secrets.MY_EMAIL }}
+      HUNTER_MODE: ${{ inputs.hunter_mode }}
+      DOMAINS: ${{ inputs.domains }}           # passed as data, never interpolated into a command
+      PIPELINE_ENV: prod
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Validate domains
+        run: |
+          python - <<'PY'
+          import os, re, sys
+          raw = [d.strip().lower() for d in re.split(r"[,\s]+", os.environ["DOMAINS"]) if d.strip()]
+          ok = [d for d in raw if re.fullmatch(r"(?:[a-z0-9-]+\.)+[a-z]{2,}", d)][:3]
+          if not ok:
+              sys.exit("no valid domains")
+          open("domains.txt", "w").write("\n".join(ok) + "\n")
+          print("domains:", ok)
+          PY
+      - name: Migrate
+        run: python main.py migrate
+      - name: Research, contact, draft, auto-send
+        run: python main.py run --domains domains.txt

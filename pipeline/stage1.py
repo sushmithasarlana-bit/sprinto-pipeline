@@ -414,14 +414,19 @@ def normalise_domain(raw: str) -> str:
     return host.removeprefix("www.")
 
 
-def inject_domains(path: Path) -> dict[str, Any]:
-    """Lines: domain[,company name[,Series X]]. '#' starts a comment. Goes to the top of the pool."""
+def inject_domains(path: Path | None = None, lines: list[str] | None = None,
+                   ignore_cooldown: bool = False) -> dict[str, Any]:
+    """Lines: domain[,company name[,Series X]]. '#' starts a comment. Goes to the top of the pool.
+    Returns counts plus "ids": the company ids that are ready to research, in file order."""
     icp = get_icp()
     cooldown = timedelta(days=icp.seen_cooldown_days)
     now = datetime.now(timezone.utc)
     stats: Counter = Counter()
+    ids: list[int] = []
+    source_name = path.name if path else "domain list"
+    raw_lines = lines if lines is not None else path.read_text(encoding="utf-8").splitlines()
     with db.connect() as conn:
-        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        for lineno, line in enumerate(raw_lines, 1):
             line = line.split("#", 1)[0].strip()
             if not line:
                 continue
@@ -439,10 +444,10 @@ def inject_domains(path: Path) -> dict[str, Any]:
             norm = norm_name(name)
             gate = {"gate": "manual_injection", "result": "pass", "value": {"domain": domain, "stage": stage},
                     "headline": None, "url": None, "date": now.date().isoformat(),
-                    "reason": f"injected from {path.name} line {lineno}"}
+                    "reason": f"injected from {source_name} line {lineno}"}
             row = conn.execute("SELECT id, seen_at FROM companies WHERE norm_name=%s OR domain=%s",
                                (norm, domain)).fetchone()
-            if row and row["seen_at"] and now - row["seen_at"] < cooldown:
+            if row and row["seen_at"] and now - row["seen_at"] < cooldown and not ignore_cooldown:
                 log.warning("%s was researched on %s; inside cooldown, skipped", domain, row["seen_at"].date())
                 stats["skipped_seen"] += 1
                 continue
@@ -470,7 +475,38 @@ def inject_domains(path: Path) -> dict[str, Any]:
                    VALUES (%s, 'stage1', 'manual_injection', 'pass', %s, %s, %s)""",
                 (cid, Jsonb(gate["value"]), gate["date"], gate["reason"]),
             )
-    return dict(stats)
+            ids.append(cid)
+    return {**dict(stats), "ids": ids}
+
+
+def lookup_stage(name: str, today: date | None = None) -> NewsItem | None:
+    """Domain-list companies have no funding headline: search Google News for one.
+    Accept only a headline that names the company and states Series A/B/C within the age limit."""
+    icp = get_icp()
+    today = today or datetime.now(timezone.utc).date()
+    q = f'"{name}" Series funding'
+    best: NewsItem | None = None
+    for r in icp.news_regions:
+        url = (f"https://news.google.com/rss/search?q={quote_plus(q + ' when:' + icp.news_when)}"
+               f"&hl={r['hl']}&gl={r['gl']}&ceid={r['ceid']}")
+        res = fetch(url)
+        log_usage("google_news", stage="stage1", cached=res.cached, ok=res.ok, error=res.error)
+        if not res.ok:
+            continue
+        for e in feedparser.parse(res.text).entries:
+            if not getattr(e, "published_parsed", None):
+                continue
+            publisher = (e.get("source") or {}).get("title", "")
+            item = NewsItem(strip_publisher(e.title, publisher), publisher, e.link,
+                            datetime.fromtimestamp(calendar.timegm(e.published_parsed), tz=timezone.utc).date(),
+                            q, r["name"])
+            stage = detect_stage(item.headline)
+            parsed = parse_company_name(item.headline)
+            if (stage in icp.funding_stages and parsed and norm_name(parsed) == norm_name(name)
+                    and (today - item.published).days <= icp.funding_max_age_months * 30.44
+                    and (best is None or item.published > best.published)):
+                best = item
+    return best
 
 
 def top_of_pool(n: int = 20) -> list[dict[str, Any]]:

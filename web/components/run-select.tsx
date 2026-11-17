@@ -9,7 +9,7 @@ export function RunSelect({ runs, current }: { runs: { id: number; started_at: s
     <label className="flex items-center gap-2 text-sm">
       <span className="text-muted-foreground">Run</span>
       <select
-        className="h-9 rounded-lg border bg-card px-3 text-sm shadow-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+        className="h-9 rounded-full border bg-card px-4 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
         value={current ?? ""}
         onChange={(e) => {
           const p = new URLSearchParams(params.toString());

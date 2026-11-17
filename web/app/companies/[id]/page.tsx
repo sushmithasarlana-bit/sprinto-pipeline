@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, FlaskConical } from "lucide-react";
 import { Reveal } from "@/components/motion/reveal";
-import { Empty, Kpi, PageHeader, Panel, SourceLink, StatText, StatusBadge, fmtDate, pct } from "@/components/common";
+import { Empty, PageHeader, Panel, SourceLink, StatText, StatusBadge, fmtDate, pct } from "@/components/common";
+import { DecisionTrail } from "@/components/decision-trail";
 import { Tabs } from "@/components/tabs";
 import { getCompany } from "@/lib/queries";
 
@@ -29,31 +30,7 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[id]
   const rejected = ev._meta?.rejected_facts ?? [];
   const contact = contacts[0];
 
-  const gates = (
-    <div className="overflow-x-auto rounded-xl border bg-card">
-      <table className="w-full min-w-[860px] text-sm">
-        <thead className="border-b bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-          <tr className="[&>th]:px-4 [&>th]:py-2.5 [&>th]:font-medium"><th>Stage</th><th>Gate</th><th>Result</th><th>Evidence</th><th>Date</th><th>By</th></tr>
-        </thead>
-        <tbody>
-          {decisions.map((g) => (
-            <tr key={g.id} className="border-b align-top last:border-0 [&>td]:px-4 [&>td]:py-2.5">
-              <td className="text-xs text-muted-foreground">{g.stage}</td>
-              <td className="font-medium">{g.gate.replace(/_/g, " ")}</td>
-              <td><StatusBadge status={g.result} /></td>
-              <td className="max-w-[460px] text-xs">
-                {g.evidence_quote && <p className="text-foreground">&ldquo;{g.evidence_quote.slice(0, 260)}&rdquo;</p>}
-                {g.reason && <p className="text-muted-foreground">{g.reason}</p>}
-                {g.source_url && <SourceLink href={g.source_url} />}
-              </td>
-              <td className="whitespace-nowrap text-xs text-muted-foreground">{g.evidence_date ?? "—"}</td>
-              <td className="text-xs text-muted-foreground">{g.decided_by}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  const gates = <DecisionTrail decisions={decisions as never} />;
 
   const research = (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -150,7 +127,7 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[id]
 
   return (
     <Reveal>
-      <Link data-animate href="/companies" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link data-animate href="/companies" className="mb-5 inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> Companies
       </Link>
       <PageHeader
@@ -162,14 +139,14 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[id]
       {(c.drop_reason || c.flag_reason) && (
         <div data-animate className="mb-6 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">{c.drop_reason ?? c.flag_reason}</div>
       )}
-      <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section data-animate className="mb-8 grid grid-cols-2 gap-6 rounded-2xl border bg-card p-5 sm:p-6 md:grid-cols-4">
         <StatText label="Funding stage" value={c.funding_stage ?? "Unknown"} hint={c.funding_date ? `announced ${fmtDate(c.funding_date)}` : "from Stage 1"} />
-        <Kpi label="Rank score" value={c.rank ?? 0} decimals={3} hint="Stage 1" />
-        <Kpi label="Fit score" value={c.fit ?? 0} decimals={2} hint={c.fit == null ? "not qualified" : "qualifier"} />
-        <Kpi label="Fetches" value={ev._fetches ?? 0} hint="of 6 allowed" />
-      </div>
+        <StatText label="Rank score" value={(c.rank ?? 0).toFixed(3)} hint="Stage 1 shortlist" />
+        <StatText label="Fit score" value={c.fit != null ? c.fit.toFixed(2) : "—"} hint={c.fit == null ? "not qualified" : "qualifier"} />
+        <StatText label="Pages fetched" value={`${ev._fetches ?? 0} / 6`} hint="crawl + agent loop" />
+      </section>
       <Tabs tabs={[
-        { id: "gates", label: `Gates & evidence (${decisions.length})`, content: gates },
+        { id: "gates", label: `Decision trail (${decisions.length})`, content: gates },
         { id: "research", label: "Research", content: research },
         { id: "poc", label: "Contact", content: poc },
         { id: "email", label: `Emails (${emails.length})`, content: mail },

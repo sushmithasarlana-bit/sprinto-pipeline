@@ -20,46 +20,48 @@ export default async function DraftsPage({ searchParams }: PageProps<"/drafts">)
 
   return (
     <Reveal>
-      <PageHeader
-        title="Drafts & sends"
-        description={<>Human gate 2. Read, edit and approve. Every edit, rating and outcome is captured and distilled into learnings for the next drafts. Sends go to <span className="font-medium text-foreground">{myEmail}</span> only.</>}
-      />
+      <PageHeader eyebrow="Human gate 2" title="Drafts & sends"
+        description="Drafts that need a hook review or that you want to edit wait here. Clean drafts already went out automatically. Every edit, rating and outcome teaches the writer." />
       {drafts.length === 0 ? (
-        <Empty>No drafts waiting. Run <code>python main.py run</code> or <code>python main.py sync</code>.</Empty>
+        <Empty>No drafts waiting. Clean drafts are sent automatically; flagged ones appear here.</Empty>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[260px_1fr]">
-          <nav data-animate className="space-y-1.5 xl:sticky xl:top-6 xl:self-start">
-            {drafts.map((d) => (
-              <Link key={d.id} href={`/drafts?id=${d.id}`} scroll={false}
-                className={cn("block rounded-lg border px-3 py-2.5 text-sm transition-colors",
-                  d.id === selected?.id ? "border-primary/40 bg-accent text-accent-foreground" : "bg-card hover:bg-muted/50")}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{d.company}</span>
-                  {d.is_mock && <FlaskConical className="size-3.5 text-warning" aria-label="mock contact" />}
-                </div>
-                <div className="truncate text-xs text-muted-foreground">{d.full_name} · {d.title}</div>
-              </Link>
-            ))}
+        <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+          <nav data-animate className="flex gap-2 overflow-x-auto pb-1 lg:sticky lg:top-24 lg:flex-col lg:self-start lg:overflow-visible">
+            <div className="eyebrow hidden px-1 lg:block">{drafts.length} waiting</div>
+            {drafts.map((d) => {
+              const on = d.id === selected?.id;
+              return (
+                <Link key={d.id} href={`/drafts?id=${d.id}`} scroll={false}
+                  className={cn("min-w-[200px] rounded-2xl border px-4 py-3 transition-all lg:min-w-0",
+                    on ? "border-plum/40 bg-plum-soft shadow-sm" : "bg-card hover:border-foreground/20")}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={cn("text-sm font-semibold", on && "text-plum")}>{d.company}</span>
+                    {d.is_mock && <FlaskConical className="size-3.5 text-warning" aria-label="mock contact" />}
+                  </div>
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">{d.full_name} · {d.title}</div>
+                </Link>
+              );
+            })}
           </nav>
           {selected && <DraftEditor key={selected.id} draft={selected} myEmail={myEmail} />}
         </div>
       )}
 
-      <Panel title="Sent" description="Record what the prospect did: this is the strongest signal the loop gets." className="mt-8">
+      <Panel title="Sent" description="Record what the prospect did. It is the strongest signal the loop gets." className="mt-10" flush>
         {sent.length ? (
-          <div className="-mx-5 overflow-x-auto">
+          <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
-              <thead className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                <tr className="[&>th]:px-5 [&>th]:pb-2 [&>th]:font-medium">
-                  <th>Company</th><th>To (PoC)</th><th>Subject</th><th>Sent</th><th className="text-right">Edit rate</th><th>Outcome</th>
+              <thead className="border-y bg-muted/50 text-left">
+                <tr className="eyebrow [&>th]:px-6 [&>th]:py-2.5 [&>th]:font-semibold">
+                  <th>Company</th><th>Written for</th><th>Subject</th><th>Sent</th><th className="text-right">Edited</th><th>Outcome</th>
                 </tr>
               </thead>
               <tbody>
                 {sent.map((s) => (
-                  <tr key={s.id} className="border-t [&>td]:px-5 [&>td]:py-2.5">
+                  <tr key={s.id} className="border-b last:border-0 [&>td]:px-6 [&>td]:py-3">
                     <td><CompanyLink id={s.company_id} name={s.company} /></td>
                     <td className="text-muted-foreground">{s.full_name}<div className="text-xs">{s.title}</div></td>
-                    <td className="max-w-[300px] truncate" title={s.sent_subject}>{s.sent_subject}</td>
+                    <td className="max-w-[300px] truncate" title={s.sent_subject}>{String(s.sent_subject ?? "").replace(/^\[DRAFT for [^\]]+\]\s*/, "")}</td>
                     <td className="whitespace-nowrap text-muted-foreground">{fmtDate(s.sent_at, true)}</td>
                     <td className="tabular text-right">{pct(s.edit_rate, 1)}</td>
                     <td><OutcomeSelect emailId={s.id} value={s.outcome} /></td>
@@ -68,7 +70,7 @@ export default async function DraftsPage({ searchParams }: PageProps<"/drafts">)
               </tbody>
             </table>
           </div>
-        ) : <Empty>Nothing sent yet.</Empty>}
+        ) : <div className="px-6 pb-6"><Empty>Nothing sent yet.</Empty></div>}
       </Panel>
     </Reveal>
   );

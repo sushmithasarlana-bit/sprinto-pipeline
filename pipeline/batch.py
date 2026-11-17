@@ -13,6 +13,7 @@ from psycopg.types.json import Jsonb
 from pipeline import db
 from pipeline.config import get_icp, icp_raw
 from pipeline.extract import extract
+from pipeline.mailer import auto_send_for_company
 from pipeline.poc import find_poc
 from pipeline.qualify import Outcome, gate_rows, qualify_company
 from pipeline.resolve import resolve
@@ -119,6 +120,7 @@ def research_company(c: dict, run_id: int, batch_no: int | None = None) -> str:
         current_stage.set("poc")
         if find_poc({**c, "domain": domain, "status": "qualified"}, run_id) == "qualified":
             write_drafts(run_id, company_id=cid)
+            auto_send_for_company(cid, run_id)          # 7. send (only clean drafts; the rest wait for a human)
     return out.status
 
 
@@ -190,6 +192,85 @@ def sync() -> dict[str, Any]:
     backfilled = feedback.backfill()
     learned = feedback.learn()
     return {"queued": queued, "backfilled_events": backfilled, "learned": learned}
+
+
+def _attach_stage(c: dict, run_id: int) -> dict:
+    """Domain-list company without a stage: find its funding round in the news and record the evidence."""
+    from pipeline.stage1 import detect_amount, lookup_stage
+
+    item = lookup_stage(c["name"])
+    if not item:
+        _decision(c["id"], run_id, "stage1", "funding_stage_lookup", "unknown", None, None, None, None,
+                  f"no Series A-C headline naming '{c['name']}' in Google News")
+        return c
+    stage = detect_stage_of(item.headline)
+    gate = {"gate": "funding_stage", "result": "pass", "value": stage, "headline": item.headline, "url": item.url,
+            "date": item.published.isoformat(), "publisher": item.publisher, "reason": "found by domain-list lookup"}
+    _update_company(c["id"], funding_stage=stage, funding_date=item.published,
+                    funding_amount=detect_amount(item.headline),
+                    stage1_evidence=(c["stage1_evidence"] or []) + [gate])
+    _decision(c["id"], run_id, "stage1", "funding_stage_lookup", "pass", stage, item.headline, item.url,
+              item.published.isoformat(), "funding round found in the news for a domain-list company")
+    log.info("  stage lookup: %s -> %s (%s)", c["name"], stage, item.headline[:80])
+    return {**c, "funding_stage": stage, "stage1_evidence": (c["stage1_evidence"] or []) + [gate]}
+
+
+def detect_stage_of(headline: str) -> str | None:
+    from pipeline.stage1 import detect_stage
+    return detect_stage(headline)
+
+
+def run_domains(path: str | None = None, domains: list[str] | None = None) -> dict[str, Any]:
+    """The case's repeatable mode: research every domain in a list end to end (resolve stage, crawl,
+    qualify, PoC, draft, auto-send) without stopping for decisions. Flags still wait for a human."""
+    from pathlib import Path
+    from pipeline.stage1 import inject_domains
+
+    icp = get_icp()
+    log.info("sync before domain run: %s", sync())
+    injected = inject_domains(Path(path) if path else None, lines=domains, ignore_cooldown=True)
+    ids = injected.get("ids", [])
+    with db.connect() as conn:
+        run_id = conn.execute("INSERT INTO runs (icp_snapshot, pool_size, notes) VALUES (%s,%s,%s) RETURNING id",
+                              (Jsonb(icp_raw()), len(ids), f"domain list: {path or ', '.join(domains or [])}"[:500])
+                              ).fetchone()["id"]
+    current_run_id.set(run_id)
+    results, qualified = [], 0
+    status = "completed"
+    try:
+        for cid in ids:
+            with db.connect() as conn:
+                c = conn.execute("SELECT * FROM companies WHERE id=%s", (cid,)).fetchone()
+            current_company_id.set(cid)
+            try:
+                if not c["funding_stage"] and icp.domain_lists.get("stage_lookup"):
+                    c = _attach_stage(c, run_id)
+                st = research_company(c, run_id, 1)
+            except Exception as e:  # noqa: BLE001 - one bad domain never stops the list
+                log.exception("domain run failed for %s", c["domain"])
+                st = _flag(cid, f"error: {type(e).__name__}: {str(e)[:200]}")
+            qualified += st == "qualified"
+            with db.connect() as conn:
+                row = conn.execute(
+                    """SELECT c.name, c.domain, c.status, coalesce(c.drop_reason, c.flag_reason) reason,
+                              (SELECT full_name || ', ' || title FROM contacts WHERE company_id=c.id ORDER BY id DESC LIMIT 1) poc,
+                              (SELECT status FROM emails WHERE company_id=c.id ORDER BY id DESC LIMIT 1) email
+                       FROM companies c WHERE c.id=%s""", (cid,)).fetchone()
+            results.append(dict(row))
+            counts = _counts(run_id)
+            with db.connect() as conn:
+                conn.execute("""UPDATE runs SET batches_used=1, researched=%s, qualified=%s, flagged=%s, dropped=%s
+                                WHERE id=%s""", (len(results), qualified, counts.get("flagged", 0),
+                                                 counts.get("dropped", 0), run_id))
+    except Exception:
+        status = "failed"
+        raise
+    finally:
+        with db.connect() as conn:
+            conn.execute("UPDATE runs SET finished_at=now(), status=%s, stop_reason='domain_list' WHERE id=%s",
+                         (status, run_id))
+    return {"run_id": run_id, "domains": len(ids), "qualified": qualified, "skipped": injected.get("bad_line", 0),
+            "results": results}
 
 
 def run(target: int | None = None, max_batches: int | None = None) -> dict[str, Any]:

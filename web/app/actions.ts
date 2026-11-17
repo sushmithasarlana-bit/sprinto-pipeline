@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { distance } from "fastest-levenshtein";
 import { sql } from "@/lib/db";
 import { capture, humanDecision } from "@/lib/feedback";
+import { RUN_LIMITS } from "@/lib/run-limits";
 
 export type ActionResult = { ok: boolean; message: string };
 
@@ -141,4 +142,34 @@ export async function setOutcome(emailId: number, outcome: string, note: string)
 export async function setLearningStatus(id: number, active: boolean): Promise<ActionResult> {
   await sql`UPDATE learnings SET status = ${active ? "active" : "retired"}, updated_at = now() WHERE id = ${id}`;
   return done(active ? "Learning re-activated." : "Learning retired: it will no longer be retrieved.");
+}
+
+// ---------------------------------------------------------------- run on domains (GitHub Actions)
+
+
+
+export async function triggerRun(raw: string): Promise<ActionResult> {
+  const { dispatchRun, hasDispatchToken } = await import("@/lib/github");
+  if (!hasDispatchToken()) {
+    return fail("Running from the web needs GITHUB_DISPATCH_TOKEN on the server. Locally: python main.py run --domains list.txt");
+  }
+  const domains = [...new Set(raw.split(/[\s,;]+/).map((d) => normaliseDomain(d)).filter((d): d is string => !!d))];
+  if (!domains.length) return fail("Enter at least one domain, like acme.io.");
+  if (domains.length > RUN_LIMITS.maxDomains) return fail(`Up to ${RUN_LIMITS.maxDomains} domains per run.`);
+  const [{ n }] = await sql`SELECT count(*)::int n FROM pipeline_triggers WHERE created_at > now() - interval '1 day'`;
+  if (n >= RUN_LIMITS.maxRunsPerDay) return fail(`Daily limit reached (${RUN_LIMITS.maxRunsPerDay} web runs a day). Try tomorrow or run it locally.`);
+  const [credits] = await sql`SELECT credits_remaining::int r FROM api_usage WHERE service = 'hunter' AND model = 'live'
+                              AND credits_remaining IS NOT NULL ORDER BY ts DESC LIMIT 1`;
+  const hunterMode = (credits?.r ?? 0) >= RUN_LIMITS.liveHunterFloor ? "live" : "mock";
+  const [t] = await sql`INSERT INTO pipeline_triggers (domains, hunter_mode) VALUES (${domains}, ${hunterMode}) RETURNING id::int`;
+  try {
+    const { runId, url } = await dispatchRun(domains, hunterMode, t.id);
+    await sql`UPDATE pipeline_triggers SET github_run_id = ${runId}, github_run_url = ${url} WHERE id = ${t.id}`;
+    revalidatePath("/run");
+    return { ok: true, message: `Started on ${domains.join(", ")} (Hunter ${hunterMode}). Results appear here in about 3–8 minutes.` };
+  } catch (err) {
+    await sql`UPDATE pipeline_triggers SET status = 'failed', error = ${String(err).slice(0, 300)} WHERE id = ${t.id}`;
+    revalidatePath("/run");
+    return fail(`Could not start the run: ${String(err).slice(0, 160)}`);
+  }
 }

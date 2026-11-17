@@ -138,6 +138,19 @@
   },
   "sensitive_industries": ["fintech", "payments", "healthtech", "insurtech", "hr tech"],
 
+  "auto_send": {
+    "enabled": true,
+    "skip_needs_review": true,
+    "skip_mock_contacts": true
+  },
+  "domain_lists": {
+    "stage_lookup": true,
+    "allow_unknown_stage": true,
+    "max_domains_per_web_run": 3,
+    "max_web_runs_per_day": 3,
+    "live_hunter_floor": 15
+  },
+
   "http": {
     "timeout_seconds": 12,
     "max_retries": 2,

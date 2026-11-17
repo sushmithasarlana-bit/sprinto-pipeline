@@ -32,13 +32,13 @@ export function ReviewCard({ item }: { item: ReviewItem }) {
 
   const gates = (item.gates ?? []).filter((g) => g.stage !== "human");
   return (
-    <article data-animate className="rounded-xl border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b p-5">
+    <article data-animate className="overflow-hidden rounded-2xl border bg-card">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b bg-muted/30 px-5 py-4 sm:px-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <CompanyLink id={item.id} name={item.name} />
             <StatusBadge status={item.status} />
-            {!flagged && <span className="rounded-full bg-info/12 px-2 py-0.5 text-[11px] font-medium text-info">hook review</span>}
+            {!flagged && <span className="rounded-full bg-info/12 px-2.5 py-0.5 text-[11.5px] font-medium text-info">hook review</span>}
             {item.queued_action && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">queued: {item.queued_action}</span>}
           </div>
           <div className="text-xs text-muted-foreground">
@@ -53,7 +53,7 @@ export function ReviewCard({ item }: { item: ReviewItem }) {
         </div>
       </div>
 
-      <div className="grid gap-5 p-5 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-3 text-sm">
           {item.funding?.headline && (
             <p className="text-muted-foreground">
@@ -62,7 +62,7 @@ export function ReviewCard({ item }: { item: ReviewItem }) {
             </p>
           )}
           {gates.length > 0 ? (
-            <ul className="divide-y rounded-lg border">
+            <ul className="divide-y rounded-xl border">
               {gates.slice(0, 7).map((g) => (
                 <li key={g.id} className="grid grid-cols-[150px_70px_1fr] items-start gap-3 px-3 py-2 text-xs">
                   <span className="font-medium text-foreground">{g.gate.replace(/_/g, " ")}</span>
@@ -77,7 +77,8 @@ export function ReviewCard({ item }: { item: ReviewItem }) {
           ) : <p className="text-xs text-muted-foreground">No gate evidence yet: the company has not been researched.</p>}
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 rounded-xl bg-muted/40 p-4">
+          <div className="eyebrow">Decide</div>
           <div className="space-y-2">
             <Input placeholder={flagged ? "Why qualify? (optional)" : "Note (optional)"} value={note} onChange={(e) => setNote(e.target.value)} />
             <Button className="w-full" disabled={pending}

@@ -19,7 +19,7 @@ export function Tabs({ tabs }: { tabs: { id: string; label: ReactNode; content: 
 
   return (
     <div data-animate>
-      <div ref={list} role="tablist" className="relative mb-5 flex gap-1 overflow-x-auto border-b">
+      <div ref={list} role="tablist" className="relative mb-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b">
         {tabs.map((t) => (
           <button key={t.id} role="tab" data-tab={t.id} aria-selected={t.id === active} onClick={() => setActive(t.id)}
             className={cn("whitespace-nowrap px-3 pb-2.5 pt-1 text-sm transition-colors",

@@ -25,36 +25,36 @@ export default async function CompaniesPage({ searchParams }: PageProps<"/compan
 
   return (
     <Reveal>
-      <PageHeader title="Companies" description="Every company the pipeline has researched or that was added by hand. Open one to see each decision with its evidence." />
+      <PageHeader eyebrow="Pipeline" title="Companies" description="Every company the pipeline has researched or that was added by hand. Open one to see each decision with its evidence." />
       <div data-animate className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <form className="relative w-full sm:max-w-xs">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <input name="q" defaultValue={q ?? ""} placeholder="Search name or domain"
-            className="h-9 w-full rounded-lg border bg-card pr-3 pl-9 text-sm shadow-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/40" />
+            className="h-9 w-full rounded-full border bg-card pr-4 pl-9 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/30" />
           {status && <input type="hidden" name="status" value={status} />}
         </form>
         <div className="flex flex-wrap gap-1.5">
           {[null, ...STATUSES].map((s) => (
             <Link key={s ?? "all"} href={href(s)}
               className={cn("rounded-full border px-3 py-1 text-xs capitalize transition-colors",
-                s === status ? "border-primary bg-primary/10 text-primary" : "bg-card text-muted-foreground hover:text-foreground")}>
+                s === status ? "border-plum bg-plum text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground")}>
               {s ?? "all"}
             </Link>
           ))}
         </div>
       </div>
       {rows.length === 0 ? <Empty>No companies match.</Empty> : (
-        <div data-animate className="overflow-x-auto rounded-xl border bg-card">
+        <div data-animate className="overflow-x-auto rounded-2xl border bg-card">
           <table className="w-full min-w-[820px] text-sm">
-            <thead className="border-b bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-              <tr className="[&>th]:px-4 [&>th]:py-2.5 [&>th]:font-medium">
+            <thead className="border-b bg-muted/50 text-left">
+              <tr className="eyebrow [&>th]:px-5 [&>th]:py-3 [&>th]:font-semibold">
                 <th>Company</th><th>Stage</th><th>Industry</th><th>Status</th>
                 <th className="text-right">Rank</th><th className="text-right">Fit</th><th>Reason</th><th>Updated</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((c) => (
-                <tr key={c.id} className="border-b last:border-0 transition-colors hover:bg-muted/40 [&>td]:px-4 [&>td]:py-2.5">
+                <tr key={c.id} className="border-b last:border-0 transition-colors hover:bg-muted/40 [&>td]:px-5 [&>td]:py-3">
                   <td><CompanyLink id={c.id} name={c.name} /><div className="text-xs text-muted-foreground">{c.domain ?? "no domain"}</div></td>
                   <td className="text-muted-foreground">{c.funding_stage ?? "?"}</td>
                   <td className="text-xs text-muted-foreground">{(c.industry_tags ?? []).join(", ") || "—"}</td>

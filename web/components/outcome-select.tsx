@@ -24,7 +24,7 @@ export function OutcomeSelect({ emailId, value }: { emailId: number; value: stri
           (r.ok ? toast.success : toast.error)(r.message);
         });
       }}
-      className="h-8 rounded-lg border bg-background px-2 text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+      className="h-8 rounded-full border bg-background px-3 text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
     >
       {OUTCOMES.map(([v, l]) => <option key={v} value={v} disabled={!v}>{l}</option>)}
     </select>

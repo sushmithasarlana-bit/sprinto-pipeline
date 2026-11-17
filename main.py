@@ -5,6 +5,7 @@
     python main.py stage1                  news -> gates -> ranked pool, prints top 20
     python main.py pool                    print the top 20 unseen companies in the pool
     python main.py --domains domains.txt   inject manual domains (domain[,name[,Series X]]) at top rank
+    python main.py run --domains list.txt  research every listed domain end to end (stage lookup, PoC, draft, auto-send)
     python main.py run                     batches of 20 until 5 qualified (icp.json), max 3 batches
     python main.py extract <domain>        crawl + extract one domain, print evidence JSON
     python main.py poc                     find a PoC for qualified companies without one (HUNTER_MODE)
@@ -115,6 +116,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-batches", type=int, help="override max_batches_per_run for this run")
     args = parser.parse_args(argv)
 
+    if args.command == "run" and args.domains:
+        import json as _json
+        from pipeline.batch import run_domains
+
+        summary = run_domains(path=args.domains)
+        print(_json.dumps(summary, indent=2, default=str))
+        return 0
     if args.domains:
         return cmd_domains(args.domains)
     if args.command == "migrate":

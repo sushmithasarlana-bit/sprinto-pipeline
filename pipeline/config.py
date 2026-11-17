@@ -78,6 +78,8 @@ class ICP:
     refetch_map: dict[str, list[str]]
     fit_weights: dict[str, float]
     sensitive_industries: list[str]
+    auto_send: dict[str, Any]
+    domain_lists: dict[str, Any]
     http: dict[str, Any]
 
     @classmethod

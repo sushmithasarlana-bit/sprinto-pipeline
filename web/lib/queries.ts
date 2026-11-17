@@ -19,9 +19,12 @@ export async function getOverview(runId: number | null) {
           AND (seen_at IS NULL OR seen_at < now() - make_interval(days => ${COOLDOWN_DAYS}))`,
     sql`SELECT (SELECT count(*)::int FROM companies) pool,
                (SELECT count(*)::int FROM companies WHERE last_run_id IS NOT NULL) researched,
+               (SELECT count(DISTINCT company_id)::int FROM research) scraped,
                (SELECT count(*)::int FROM companies WHERE status IN ('qualified','drafted','sent')) qualified,
+               (SELECT count(DISTINCT company_id)::int FROM contacts WHERE NOT is_mock) contacts,
                (SELECT count(DISTINCT company_id)::int FROM emails WHERE status IN ('drafted','sent')) drafted,
-               (SELECT count(*)::int FROM emails WHERE status = 'sent') sent`,
+               (SELECT count(*)::int FROM emails WHERE status = 'sent') sent,
+               (SELECT count(*)::int FROM companies WHERE status = 'flagged') review`,
     sql`SELECT coalesce(sum(credits_used) FILTER (WHERE NOT cached AND ok), 0)::int spent,
                (SELECT credits_remaining FROM api_usage WHERE service = 'hunter' AND model = 'live'
                 AND credits_remaining IS NOT NULL ORDER BY ts DESC LIMIT 1)::int remaining
@@ -129,6 +132,24 @@ export async function getCompany(id: number) {
         WHERE a.company_id = ${id}`,
   ]);
   return c ? { company: c as Row, decisions, pages, contacts, emails, events, applied } : null;
+}
+
+export async function getRunPage() {
+  const [triggers, results, credits] = await Promise.all([
+    sql`SELECT id::int, created_at, domains, hunter_mode, github_run_url, status, error
+        FROM pipeline_triggers ORDER BY id DESC LIMIT 8`,
+    sql`SELECT r.id::int run_id, r.started_at, r.status run_status, c.id::int, c.name, c.domain, c.status,
+               coalesce(c.drop_reason, c.flag_reason) reason,
+               (SELECT full_name || ' · ' || title FROM contacts k WHERE k.company_id = c.id ORDER BY id DESC LIMIT 1) poc,
+               (SELECT status FROM emails e WHERE e.company_id = c.id ORDER BY id DESC LIMIT 1) email
+        FROM runs r JOIN companies c ON c.last_run_id = r.id
+        WHERE r.id IN (SELECT id FROM runs WHERE stop_reason = 'domain_list' OR notes LIKE 'domain list:%' ORDER BY id DESC LIMIT 4)
+        ORDER BY r.id DESC, c.updated_at`,
+    sql`SELECT credits_remaining::int r FROM api_usage WHERE service = 'hunter' AND model = 'live'
+        AND credits_remaining IS NOT NULL ORDER BY ts DESC LIMIT 1`,
+  ]);
+  const [{ today }] = await sql`SELECT count(*)::int today FROM pipeline_triggers WHERE created_at > now() - interval '1 day'`;
+  return { triggers, results, credits: credits[0]?.r ?? null, today: today as number };
 }
 
 export async function getLoop() {

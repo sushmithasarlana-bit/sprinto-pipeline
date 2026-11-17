@@ -91,6 +91,9 @@ def gate_funding(company: dict, icp: ICP) -> Gate:
     stage = company.get("funding_stage")
     s1 = next((g for g in company.get("stage1_evidence") or [] if g.get("gate") == "funding_stage"), {})
     if not stage:
+        if company.get("source") == "manual" and icp.domain_lists.get("allow_unknown_stage"):
+            return Gate("funding_stage", PASS, None, reason="supplied in a domain list; no Series A-C round found "
+                        "in the news (domain_lists.allow_unknown_stage in icp.json)")
         return Gate("funding_stage", UNKNOWN, None, reason="no funding stage on record (manual domain without stage)")
     ok = stage in icp.funding_stages
     return Gate("funding_stage", PASS if ok else FAIL, stage, s1.get("headline"), s1.get("url"), s1.get("date"),

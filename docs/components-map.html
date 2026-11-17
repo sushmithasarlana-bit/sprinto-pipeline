@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Components Map · Sprinto Outreach</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root { --plum:#650A41; --plum-soft:#F6EAF1; --paper:#F6F5F2; --ink:#1C1519; --muted:#6E6369; --line:#E5E0D9; --warn:#B7791F; --ok:#1E7A4C; --ai:#2C6CA8; }
+  * { box-sizing: border-box; }
+  body { margin:0; width:1920px; height:1200px; background:var(--paper); color:var(--ink); font-family:'Instrument Sans', Arial, sans-serif; }
+  .page { padding:56px 64px; height:100%; display:flex; flex-direction:column; gap:28px; }
+  header { display:flex; align-items:flex-end; justify-content:space-between; }
+  h1 { margin:0; font-size:44px; letter-spacing:-0.02em; }
+  .sub { color:var(--muted); font-size:20px; margin-top:6px; }
+  .legend { display:flex; gap:22px; font-size:17px; color:var(--muted); }
+  .legend span { display:flex; align-items:center; gap:8px; }
+  .dot { width:14px; height:14px; border-radius:4px; display:inline-block; }
+  .cols { flex:1; display:grid; grid-template-columns: 1fr 72px 1.55fr 72px 1fr 72px 1fr; align-items:stretch; }
+  .col { display:flex; flex-direction:column; gap:14px; }
+  .col h2 { margin:0 0 4px; font-size:15px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .card { background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:14px 18px; }
+  .card b { display:block; font-size:19px; }
+  .card small { display:block; font-size:15px; color:var(--muted); margin-top:3px; line-height:1.35; }
+  .src { border-left:6px solid #9AA3AE; }
+  .step { display:grid; grid-template-columns:38px 1fr; gap:12px; align-items:start; border-left:6px solid var(--plum); }
+  .step .n { width:34px; height:34px; border-radius:50%; background:var(--plum); color:#fff; display:grid; place-items:center; font-weight:700; font-size:17px; }
+  .step.ai { border-left-color:var(--ai); }
+  .step.ai .n { background:var(--ai); }
+  .gate { border:2px dashed var(--warn); background:#FFF8EC; }
+  .gate b { color:var(--warn); }
+  .store { border-left:6px solid var(--ok); }
+  .ui { border-left:6px solid var(--plum); background:var(--plum-soft); }
+  .aibox { border-left:6px solid var(--ai); background:#EEF4FB; }
+  .arrow { display:flex; align-items:center; justify-content:center; }
+  .arrow svg { width:56px; height:24px; }
+  .pipe { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .full { grid-column: 1 / -1; }
+  footer { display:flex; justify-content:space-between; font-size:16px; color:var(--muted); border-top:1.5px solid var(--line); padding-top:16px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <h1>Sprinto Outreach · Components Map</h1>
+      <div class="sub">Term 2 AI Case 2 · from a list of domains (or funding news) to a personalised cold email in my inbox</div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:#9AA3AE"></i>Data source</span>
+      <span><i class="dot" style="background:var(--plum)"></i>Python rule step</span>
+      <span><i class="dot" style="background:var(--ai)"></i>AI model step</span>
+      <span><i class="dot" style="background:var(--warn)"></i>Human gate</span>
+      <span><i class="dot" style="background:var(--ok)"></i>Storage</span>
+    </div>
+  </header>
+
+  <div class="cols">
+    <!-- DATA SOURCES -->
+    <div class="col">
+      <h2>Data sources &amp; tools</h2>
+      <div class="card src"><b>Domain list</b><small>CLI: run --domains list.txt · Web: Run page (≤3 domains)</small></div>
+      <div class="card src"><b>Google News RSS</b><small>Funding headlines; stage + date for each company</small></div>
+      <div class="card src"><b>Company websites</b><small>Homepage, trust, security, careers, pricing pages</small></div>
+      <div class="card src"><b>Job boards</b><small>Greenhouse · Lever · Ashby public APIs (dated roles)</small></div>
+      <div class="card src"><b>Hunter.io API</b><small>Domain Search: one call per qualified company</small></div>
+      <div class="card src"><b>Resend API</b><small>Sends to MY_EMAIL only · signed delivery webhooks</small></div>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 56 24"><path d="M2 12h44" stroke="#650A41" stroke-width="3"/><path d="M42 4l12 8-12 8" fill="#650A41"/></svg></div>
+
+    <!-- PIPELINE -->
+    <div class="col">
+      <h2>Pipeline (Python · local, or GitHub Actions)</h2>
+      <div class="pipe">
+        <div class="card step full"><span class="n">0</span><div><b>Shortlist</b><small>Regex gates (Series A–C, ≤24 months, exclusions) + rank score. No LLM.</small></div></div>
+        <div class="card step"><span class="n">1</span><div><b>Scrape</b><small>Resolve domain, crawl 3 pages, job boards; vendor HTML check</small></div></div>
+        <div class="card step ai"><span class="n">2</span><div><b>Extract</b><small>Gemini → JSON, every fact with a verbatim quote; Python verifies</small></div></div>
+        <div class="card step"><span class="n">3</span><div><b>Qualify + agent loop</b><small>6 Python gates; fetch up to 3 more pages for unknowns</small></div></div>
+        <div class="card step"><span class="n">4</span><div><b>Find PoC</b><small>Hunter + title rules by stage; reason stored</small></div></div>
+        <div class="card step ai"><span class="n">5</span><div><b>Pain points</b><small>Gemini: exactly 2, each citing an evidence id</small></div></div>
+        <div class="card step ai"><span class="n">6</span><div><b>Draft email</b><small>Gemini writes; validator checks every claim, ≤120 words</small></div></div>
+        <div class="card step"><span class="n">7</span><div><b>Send</b><small>Clean drafts auto-send via Resend to my inbox</small></div></div>
+        <div class="card step"><span class="n">↻</span><div><b>Learn</b><small>Edits, ratings, outcomes → learnings → next drafts</small></div></div>
+        <div class="card gate"><b>Gate 1 · Review queue</b><small>Unknown SaaS/stage, no contact, no domain → human decides</small></div>
+        <div class="card gate"><b>Gate 2 · Drafts</b><small>Hook review or edits → human approves &amp; sends</small></div>
+      </div>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 56 24"><path d="M2 12h44" stroke="#650A41" stroke-width="3"/><path d="M42 4l12 8-12 8" fill="#650A41"/></svg></div>
+
+    <!-- AI + STORAGE -->
+    <div class="col">
+      <h2>AI layer &amp; storage</h2>
+      <div class="card aibox"><b>Gemini 3.8 Flash</b><small>google-genai SDK · JSON schema mode · extract, write, learn. Never decides.</small></div>
+      <div class="card store"><b>Neon Postgres</b><small>companies · research · decisions (1,700+ with quote, URL, date) · contacts · emails</small></div>
+      <div class="card store"><b>Feedback memory</b><small>feedback_events → learnings → learning_applications</small></div>
+      <div class="card store"><b>icp.json</b><small>Every threshold, weight and rule; snapshot saved with each run</small></div>
+      <div class="card"><b>GitHub Actions</b><small>Weekly run (Mondays) · "Run on domains" from the dashboard</small></div>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 56 24"><path d="M2 12h44" stroke="#650A41" stroke-width="3"/><path d="M42 4l12 8-12 8" fill="#650A41"/></svg></div>
+
+    <!-- UI -->
+    <div class="col">
+      <h2>User interface</h2>
+      <div class="card ui"><b>Dashboard · Next.js on Vercel</b><small>sprinto-outreach-delta.vercel.app · reads Neon, server actions</small></div>
+      <div class="card ui"><b>Run on domains</b><small>Starts the pipeline via GitHub Actions</small></div>
+      <div class="card ui"><b>Review queue · Drafts</b><small>The two human gates; edit, rate, approve &amp; send</small></div>
+      <div class="card ui"><b>Company drill-down</b><small>Decision trail: why this company, why this person, why this email</small></div>
+      <div class="card ui"><b>Feedback loop</b><small>Act → Signal → Capture → Store → Retrieve → Apply</small></div>
+      <div class="card ui"><b>My inbox</b><small>The personalised email lands here, never the prospect's</small></div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Gemini extracts and writes · Python rules decide · a human approves anything the rules can't settle</span>
+    <span>github.com/varunagarwal-hub/sprinto-pipeline</span>
+  </footer>
+</div>
+</body>
+</html>

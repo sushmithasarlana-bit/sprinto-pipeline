@@ -14,8 +14,9 @@ export default async function ReviewPage() {
   return (
     <Reveal>
       <PageHeader
+        eyebrow="Human gate 1"
         title="Review queue"
-        description="Human gate 1. Companies the rules could not settle, and qualified companies whose hook needs a human eye. Every decision here is logged and fed back into the loop."
+        description="Companies the rules could not settle, and qualified companies whose hook needs a human eye. Every decision is logged and feeds the learning loop."
       />
       {items.length === 0 ? (
         <Empty>Nothing waiting. The pipeline settled every company on its own.</Empty>

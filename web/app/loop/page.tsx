@@ -30,13 +30,14 @@ export default async function LoopPage() {
   return (
     <Reveal>
       <PageHeader
+        eyebrow="Learning"
         title="Feedback loop"
         description="Act → Signal → Capture → Store → Retrieve → Apply. All six stages are wired; the counts show which ones have data yet. Every number below comes from Neon."
         actions={<span data-animate className="rounded-full border bg-card px-3 py-1 text-xs"><b className="tabular">{live}/6</b> stages live</span>}
       />
 
-      <section data-animate className="relative mb-8 overflow-hidden rounded-2xl border bg-card p-4 sm:p-6">
-        <BorderBeam size={180} duration={12} colorFrom="var(--brand)" colorTo="var(--brand-2)" />
+      <section data-animate className="relative mb-8 overflow-hidden rounded-2xl border bg-card p-4 sm:p-6 [background-image:radial-gradient(circle_at_1px_1px,color-mix(in_oklch,var(--plum)_14%,transparent)_1px,transparent_0)] [background-size:22px_22px]">
+        <BorderBeam size={180} duration={12} colorFrom="#650A41" colorTo="#F2B8D3" />
         <LoopDiagram stages={stages} />
       </section>
 
