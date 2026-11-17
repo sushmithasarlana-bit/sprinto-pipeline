@@ -51,6 +51,7 @@ The `.env` file holds:
 .venv/Scripts/python main.py stage1                    # news -> gates -> ranked pool; prints the top 20
 .venv/Scripts/python main.py --domains domains.txt     # add manual domains at the top of the pool
 .venv/Scripts/python main.py run                       # batches of 20 until 5 qualified (max 3 batches)
+.venv/Scripts/python main.py run --domains list.txt    # the case's mode: every listed domain end to end, auto-send
 .venv/Scripts/python main.py sync                      # run work queued from the web dashboard, then learn
 cd web && npm install && npm run dev                   # dashboard on http://localhost:3000
 ```
@@ -141,12 +142,26 @@ This rejects same-name companies (moment.com is not the payments company Moment)
   If any check fails, the draft is regenerated once with the errors as feedback. A second failure flags it.
 - **Sending:** the sender has **no `to` parameter**, so mail can only go to `MY_EMAIL`. The subject is prefixed `[DRAFT for <PoC> @ <company>]`. Neon stores both the generated and the sent body, plus the edit rate (normalised Levenshtein distance).
 
+## The case requirements (Term 2 AI Case 2)
+- **Repeatable on a list of domains:** `python main.py run --domains list.txt` (or the dashboard's **Run on domains** page) researches every domain end to end. If a domain has no funding stage, it is looked up in Google News. If none is found, the domain is still allowed through, because you supplied it (`domain_lists.allow_unknown_stage` in `icp.json`).
+- **Sends automatically:** a validated draft that needs no review is sent to `MY_EMAIL` as soon as it is written (`auto_send` in `icp.json`). Drafts that are flagged, that need a hook review, or that are addressed to a mock contact are held for a human. Every send or hold is recorded as a decision.
+- **Components Map:** [docs/components-map.png](docs/components-map.png), with its source in [docs/components-map.html](docs/components-map.html).
+- **Brief vs build:** the brief says Gmail; this build sends through Resend, by choice. The recipient is still hardcoded to your own address.
+
+### Run on domains from the web
+The dashboard starts the `run-domains.yml` GitHub Actions workflow. Each run is limited to 3 domains, with at most 3 runs a day, and Hunter falls back to mock mode when fewer than 15 searches are left. Setup:
+1. In GitHub, go to Settings → Developer settings → Fine-grained tokens and create a token for `varunagarwal-hub/sprinto-pipeline` with **Actions: Read and write** permission.
+2. In Vercel, open sprinto-outreach → Settings → Environment Variables and add `GITHUB_DISPATCH_TOKEN` for Production. Then redeploy (or push to `main`).
+
+The workflows need these repo secrets, which are already set: `GEMINI_API_KEY`, `HUNTER_API_KEY`, `DATABASE_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `MY_EMAIL`.
+
 ## Web dashboard (`web/`, Next.js 16 on Vercel)
-Next.js + Tailwind + shadcn, Magic UI (number tickers, animated beams, border beams, magic cards, shimmer button) and GSAP (page entrances, funnel bars, sidebar and tab indicators). It reads Neon directly with `@neondatabase/serverless`; every mutation is a server action.
+Next.js + Tailwind + shadcn, styled after Sprinto's visual language: plum `#650A41` on warm paper, Instrument Sans, pill-shaped controls, and an original logo mark. The app is a case-study build and is not affiliated with Sprinto. It uses Magic UI components (number tickers, animated beams, shimmer buttons) and GSAP animations (page transitions, the pipeline tracker, sidebar and tab indicators). It also has a Ctrl/⌘K command palette, an email-client view for drafts with hover evidence on every claim, and a decision-trail timeline for each company. It reads Neon directly with `@neondatabase/serverless`; every mutation is a server action.
 
 | Page | What you do there |
 |---|---|
-| Overview | Run KPIs, funnel, spec §9 metrics, drop/flag reasons, tokens per stage, recent signals |
+| Overview | Stat strip, the 7-step case pipeline tracker with the human gates, run measures, drop/flag reasons, tokens, recent signals |
+| Run on domains | Start the pipeline on up to 3 domains through GitHub Actions; see the results of recent domain runs |
 | Review queue (human gate 1) | Qualify, approve the hook, drop with a reason, or provide a domain |
 | Drafts & sends (human gate 2) | Edit with a live word count, edit rate and grounding check; switch hook; rate 👍/👎 with tags; **Approve & send**; record prospect outcomes |
 | Companies | Search and filter; drill-down shows every gate with quote, URL and date, the agent loop, pages, contact, generated vs sent email, signals and learnings applied |
