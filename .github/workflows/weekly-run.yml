@@ -1,6 +1,7 @@
-name: Weekly pipeline run
+name: Find companies (discovery run)
 
-# Mondays 03:30 UTC (09:00 IST), or on demand from the Actions tab.
+# The main mode: funding news -> shortlist -> research -> contact -> email, no input needed.
+# Mondays 03:30 UTC (09:00 IST), or on demand from the dashboard's Run page or the Actions tab.
 on:
   schedule:
     - cron: "30 3 * * 1"
@@ -11,6 +12,15 @@ on:
         type: choice
         options: [live, mock]
         default: live
+      target_qualified:
+        description: "Stop after this many companies qualify (each spends one Hunter search)"
+        type: choice
+        options: ["1", "2", "3", "5"]
+        default: "5"
+      trigger_id:
+        description: "Dashboard trigger id (optional)"
+        required: false
+        type: string
 
 concurrency:
   group: pipeline
@@ -33,6 +43,7 @@ jobs:
       HUNTER_MODE: ${{ inputs.hunter_mode || vars.HUNTER_MODE || 'live' }}
       PIPELINE_ENV: prod          # no on-disk caching on an ephemeral runner
       PYTHONIOENCODING: utf-8
+      TARGET_QUALIFIED: ${{ inputs.target_qualified || '5' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -45,7 +56,7 @@ jobs:
       - name: Stage 1 (fresh news into the pool)
         run: python main.py stage1
       - name: Batch run (syncs queued web work and learns first)
-        run: python main.py run
+        run: python main.py run --target-qualified "$TARGET_QUALIFIED"
       - name: Tests (rules still hold)
         if: always()
         run: python -m pytest -q

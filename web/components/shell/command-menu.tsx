@@ -10,7 +10,7 @@ type Item = { kind: "page" | "company"; label: string; hint?: string; href: stri
 
 const PAGES: Item[] = [
   { kind: "page", label: "Overview", href: "/" },
-  { kind: "page", label: "Run on domains", href: "/run" },
+  { kind: "page", label: "Run pipeline", href: "/run" },
   { kind: "page", label: "Review queue", href: "/review" },
   { kind: "page", label: "Drafts & sends", href: "/drafts" },
   { kind: "page", label: "Companies", href: "/companies" },

@@ -148,28 +148,47 @@ export async function setLearningStatus(id: number, active: boolean): Promise<Ac
 
 
 
-export async function triggerRun(raw: string): Promise<ActionResult> {
-  const { dispatchRun, hasDispatchToken } = await import("@/lib/github");
+/** Shared guards for web-started runs: token, daily cap, and Hunter live only while credits last. */
+async function startRun(mode: "discover" | "domains", domains: string[], target: number | null,
+                        describe: (hunterMode: string) => string): Promise<ActionResult> {
+  const { dispatchWorkflow, hasDispatchToken } = await import("@/lib/github");
   if (!hasDispatchToken()) {
-    return fail("Running from the web needs GITHUB_DISPATCH_TOKEN on the server. Locally: python main.py run --domains list.txt");
+    return fail("Running from the web needs GITHUB_DISPATCH_TOKEN on the server. Locally: python main.py run");
   }
-  const domains = [...new Set(raw.split(/[\s,;]+/).map((d) => normaliseDomain(d)).filter((d): d is string => !!d))];
-  if (!domains.length) return fail("Enter at least one domain, like acme.io.");
-  if (domains.length > RUN_LIMITS.maxDomains) return fail(`Up to ${RUN_LIMITS.maxDomains} domains per run.`);
   const [{ n }] = await sql`SELECT count(*)::int n FROM pipeline_triggers WHERE created_at > now() - interval '1 day'`;
   if (n >= RUN_LIMITS.maxRunsPerDay) return fail(`Daily limit reached (${RUN_LIMITS.maxRunsPerDay} web runs a day). Try tomorrow or run it locally.`);
   const [credits] = await sql`SELECT credits_remaining::int r FROM api_usage WHERE service = 'hunter' AND model = 'live'
                               AND credits_remaining IS NOT NULL ORDER BY ts DESC LIMIT 1`;
   const hunterMode = (credits?.r ?? 0) >= RUN_LIMITS.liveHunterFloor ? "live" : "mock";
-  const [t] = await sql`INSERT INTO pipeline_triggers (domains, hunter_mode) VALUES (${domains}, ${hunterMode}) RETURNING id::int`;
+  const [t] = await sql`INSERT INTO pipeline_triggers (mode, domains, target, hunter_mode)
+                        VALUES (${mode}, ${domains}, ${target}, ${hunterMode}) RETURNING id::int`;
+  const inputs: Record<string, string> = mode === "discover"
+    ? { hunter_mode: hunterMode, target_qualified: String(target), trigger_id: String(t.id) }
+    : { domains: domains.join(","), hunter_mode: hunterMode, trigger_id: String(t.id) };
   try {
-    const { runId, url } = await dispatchRun(domains, hunterMode, t.id);
+    const { runId, url } = await dispatchWorkflow(mode, inputs);
     await sql`UPDATE pipeline_triggers SET github_run_id = ${runId}, github_run_url = ${url} WHERE id = ${t.id}`;
     revalidatePath("/run");
-    return { ok: true, message: `Started on ${domains.join(", ")} (Hunter ${hunterMode}). Results appear here in about 3–8 minutes.` };
+    return { ok: true, message: describe(hunterMode) };
   } catch (err) {
     await sql`UPDATE pipeline_triggers SET status = 'failed', error = ${String(err).slice(0, 300)} WHERE id = ${t.id}`;
     revalidatePath("/run");
     return fail(`Could not start the run: ${String(err).slice(0, 160)}`);
   }
+}
+
+/** Main mode: the pipeline finds companies itself from funding news, then researches, contacts and emails. */
+export async function triggerDiscovery(target: number): Promise<ActionResult> {
+  if (!(RUN_LIMITS.discoverTargets as readonly number[]).includes(target)) return fail("Pick how many companies to find.");
+  return startRun("discover", [], target, (h) =>
+    `Started: finding up to ${target} qualified ${target === 1 ? "company" : "companies"} from funding news (Hunter ${h}). Takes about 10–25 minutes.`);
+}
+
+/** Secondary mode: the same pipeline on domains you already have. */
+export async function triggerRun(raw: string): Promise<ActionResult> {
+  const domains = [...new Set(raw.split(/[\s,;]+/).map((d) => normaliseDomain(d)).filter((d): d is string => !!d))];
+  if (!domains.length) return fail("Enter at least one domain, like acme.io.");
+  if (domains.length > RUN_LIMITS.maxDomains) return fail(`Up to ${RUN_LIMITS.maxDomains} domains per run.`);
+  return startRun("domains", domains, null, (h) =>
+    `Started on ${domains.join(", ")} (Hunter ${h}). Results appear here in about 3–8 minutes.`);
 }

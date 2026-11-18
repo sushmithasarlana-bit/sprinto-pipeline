@@ -31,7 +31,7 @@ export default async function Overview({ searchParams }: PageProps<"/">) {
       />
 
       {!run ? (
-        <Empty>No runs yet. Use <Link href="/run" className="text-plum underline">Run on domains</Link> or <code>python main.py run</code>.</Empty>
+        <Empty>No runs yet. Use <Link href="/run" className="text-plum underline">Run pipeline</Link> or <code>python main.py run</code>.</Empty>
       ) : (
         <div className="space-y-6">
           <StatStrip stats={[

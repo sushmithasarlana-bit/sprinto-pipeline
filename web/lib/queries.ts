@@ -136,15 +136,20 @@ export async function getCompany(id: number) {
 
 export async function getRunPage() {
   const [triggers, results, credits] = await Promise.all([
-    sql`SELECT id::int, created_at, domains, hunter_mode, github_run_url, status, error
+    sql`SELECT id::int, created_at, mode, domains, target, hunter_mode, github_run_url, status, error
         FROM pipeline_triggers ORDER BY id DESC LIMIT 8`,
-    sql`SELECT r.id::int run_id, r.started_at, r.status run_status, c.id::int, c.name, c.domain, c.status,
+    sql`SELECT r.id::int run_id, r.started_at, r.status run_status,
+               (r.stop_reason = 'domain_list' OR coalesce(r.notes, '') LIKE 'domain list:%') is_domain_run,
+               c.id::int, c.name, c.domain, c.status,
                coalesce(c.drop_reason, c.flag_reason) reason,
                (SELECT full_name || ' · ' || title FROM contacts k WHERE k.company_id = c.id ORDER BY id DESC LIMIT 1) poc,
                (SELECT status FROM emails e WHERE e.company_id = c.id ORDER BY id DESC LIMIT 1) email
         FROM runs r JOIN companies c ON c.last_run_id = r.id
-        WHERE r.id IN (SELECT id FROM runs WHERE stop_reason = 'domain_list' OR notes LIKE 'domain list:%' ORDER BY id DESC LIMIT 4)
-        ORDER BY r.id DESC, c.updated_at`,
+        WHERE r.id IN (SELECT id FROM runs ORDER BY id DESC LIMIT 4)
+        ORDER BY r.id DESC,
+                 CASE WHEN EXISTS (SELECT 1 FROM emails e WHERE e.company_id = c.id) THEN 0
+                      WHEN c.status IN ('qualified','flagged','drafted') THEN 1 ELSE 2 END,
+                 c.updated_at DESC`,
     sql`SELECT credits_remaining::int r FROM api_usage WHERE service = 'hunter' AND model = 'live'
         AND credits_remaining IS NOT NULL ORDER BY ts DESC LIMIT 1`,
   ]);
