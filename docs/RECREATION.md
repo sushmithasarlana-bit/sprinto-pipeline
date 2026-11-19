@@ -94,7 +94,8 @@ The principle stated on the map holds in code: **Gemini reads and writes; Python
 | `requirements.txt`: removed unused Gmail libs; Intel-Mac `cryptography` pin | Install failed on this Mac |
 | `AI_PROVIDER=gemini\|openrouter` in `pipeline/llm.py` (+5 tests) | Fallback when a Google key is refused. Same model (`google/gemini-3.8-flash`), reply capped (`OPENROUTER_MAX_TOKENS=4000`) so a small balance isn't refused, reasoning `low` because this model always reasons and its thinking otherwise consumes the cap (a 20-token test returned an empty answer). Default stays `gemini`. Currently set to `gemini`. |
 | `scripts/set_keys.py` | Keys typed into hidden prompts; never printed or pasted in chat |
-| Workflows pass `AI_PROVIDER` and `OPENROUTER_API_KEY` | So Actions can use either provider |
+| Workflows pass `AI_PROVIDER` and `OPENROUTER_API_KEY`; actions bumped to `checkout@v5`, `setup-python@v6` | So Actions can use either provider; GitHub flagged the Node 20 versions as deprecated |
+| `scripts/save_dispatch_token.sh` | Hidden-prompt entry for the GitHub token behind the Run buttons |
 | Dashboard date display in `Asia/Kolkata` | Live site showed UTC |
 | Doc links point to this copy; DEMO.md notes its examples are the reference's data | Accuracy |
 
@@ -123,7 +124,8 @@ No feature of the reference was removed.
 | Model ML | Qualified (ISO 27001 certified, no Vanta/Drata), flagged: Hunter returned 0 emails |
 | VitusCare, Olyv | Flagged: domain unresolved (nothing guessed) |
 | Approve & send (dashboard, human gate 2) | Two-step confirm → Resend → status **delivered** to MY_EMAIL; subject prefixed `[DRAFT for Allen Rohner @ Griffin]`; Sent table + feedback event recorded |
-| Hunter credits | 2 spent, 48 left |
+| Hunter credits | 2 spent, 48 left (then 1 more in run 2) |
+| **Web-started run** (live Run page → "Find companies for me", stop after 1) | GitHub Actions run 44559491071, 8 min, all steps green: Stage 1 refresh → **Arva AI** (Series A) qualified (+review) → Hunter → **Rhim Shah, CEO** (Series A fallback after CTO / VP Eng / co-founder / compliance) → draft held for review; 122 tests also pass on the runner |
 
 ### Dashboard validation
 | Check | Result |
@@ -137,8 +139,8 @@ No feature of the reference was removed.
 | Times | Live site shows India time (send at 20:12 IST) |
 
 ### Not tested
-- **Run buttons on the live Run page:** need `GITHUB_DISPATCH_TOKEN` on Vercel and the keys as GitHub Actions secrets (see §5).
-- Weekly scheduled GitHub Action (same dependency).
+- "Run on these domains" button (same dispatch path as the tested discovery run, different workflow).
+- The weekly scheduled run (active: Mondays 03:30 UTC / 09:00 IST); first one is due Monday 23 Nov 2026.
 - Resend delivery webhook (needs a webhook registered in the Resend account and `RESEND_WEBHOOK_SECRET`).
 - Dashboard actions Qualify / Drop / Provide domain / switch hook / ratings / outcomes were rendered but not clicked on this copy's data.
 - Gmail sending (not built: Resend is used, as in the reference).
@@ -147,7 +149,7 @@ No feature of the reference was removed.
 
 ## 5. Known limitations
 
-1. **Web-started runs are not yet enabled.** The dashboard shows a setup notice until a fine-grained GitHub token (Actions read/write on this repo) is added to Vercel as `GITHUB_DISPATCH_TOKEN` and the keys are saved as repo secrets. Until then, run from a terminal: `.venv/bin/python main.py run`.
+1. **Web runs depend on a GitHub token with an expiry.** `GITHUB_DISPATCH_TOKEN` (fine-grained, Actions read/write on this repo only) is on Vercel; when it expires the Run page falls back to its setup notice. Create a new one and run `scripts/save_dispatch_token.sh`, then re-add it on Vercel. The weekly run spends up to ~5 Hunter credits and auto-sends clean drafts to `MY_EMAIL`.
 2. **Qualification with unknown certifications (inherited):** a company qualifies (with review) when its certifications and trust vendor are still unknown after the agent loop, e.g. Griffin. The outcome rules only flag when SaaS status or funding stage is unknown, so a company already on Vanta/Drata could slip through if its trust page can't be read.
 3. **Domain resolution (inherited):** names that don't map to `name + .com/.io/.ai/.co/.in`, and funding articles behind Google redirects, end up flagged "domain unresolved" (2 of 4 in run 1). A human uses "Provide domain".
 4. **Few dated audit signals (inherited):** company sites rarely date signals, so most drafts use the funding round as the hook and need a human review before sending.
