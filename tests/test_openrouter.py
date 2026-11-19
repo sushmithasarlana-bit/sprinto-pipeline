@@ -60,6 +60,7 @@ def test_request_shape_and_success(openrouter_env, monkeypatch):
     assert sent["headers"]["Authorization"] == "Bearer test-key"
     assert body["model"] == "google/gemini-3.8-flash"
     assert body["max_tokens"] == 4000
+    assert body["reasoning"] == {"effort": "low"}
     assert body["response_format"]["type"] == "json_schema"
     assert "$ref" not in json.dumps(body["response_format"])
     assert res.data is not None and res.data.hook.evidence_id == "E1"

@@ -39,6 +39,7 @@ class Settings:
     openrouter_api_key: str = ""
     openrouter_model: str = DEFAULT_OPENROUTER_MODEL
     openrouter_max_tokens: int = 4000
+    openrouter_reasoning: str = "low"
 
     @property
     def is_dev(self) -> bool:
@@ -118,6 +119,7 @@ def get_settings() -> Settings:
         openrouter_api_key=os.getenv("OPENROUTER_API_KEY", ""),
         openrouter_model=os.getenv("OPENROUTER_MODEL") or DEFAULT_OPENROUTER_MODEL,
         openrouter_max_tokens=int(os.getenv("OPENROUTER_MAX_TOKENS") or 4000),
+        openrouter_reasoning=(os.getenv("OPENROUTER_REASONING") or "low").strip().lower(),
     )
 
 

@@ -112,6 +112,9 @@ def _openrouter(model: str, system: str, prompt: str, schema: type[BaseModel], t
                 # Without a cap OpenRouter reserves credit for the model's maximum output and refuses (402)
                 # on a small balance. Long enough for the extractor's JSON.
                 "max_tokens": max_tokens,
+                # Gemini 3.8 Flash on OpenRouter always reasons ("none" is refused) and its reasoning tokens
+                # count against max_tokens; at the default effort a short cap returns an empty answer.
+                "reasoning": {"effort": get_settings().openrouter_reasoning},
             })
     except requests.RequestException as e:
         raise ProviderError(None, f"network error: {type(e).__name__}") from None
