@@ -39,11 +39,15 @@ def cmd_check() -> int:
     s = get_settings()
     print(f"icp.json OK: batch_size={icp.batch_size}, target={icp.target_qualified_per_run}, "
           f"stages={icp.funding_stages}")
-    for name, val in [("GEMINI_API_KEY", s.gemini_api_key), ("HUNTER_API_KEY", s.hunter_api_key),
+    ai_key = ("OPENROUTER_API_KEY", s.openrouter_api_key) if s.ai_provider == "openrouter" \
+        else ("GEMINI_API_KEY", s.gemini_api_key)
+    for name, val in [ai_key, ("HUNTER_API_KEY", s.hunter_api_key), ("RESEND_API_KEY", s.resend_api_key),
                       ("DATABASE_URL", s.database_url), ("MY_EMAIL", s.my_email)]:
-        print(f"  {name:<15} {'set' if val else 'MISSING'}")
-    print(f"  GEMINI_MODEL    {s.gemini_model}")
-    print(f"  PIPELINE_ENV    {s.env}")
+        print(f"  {name:<18} {'set' if val else 'MISSING'}")
+    print(f"  AI_PROVIDER        {s.ai_provider}")
+    print(f"  model              {s.openrouter_model if s.ai_provider == 'openrouter' else s.gemini_model}")
+    print(f"  HUNTER_MODE        {s.hunter_mode}")
+    print(f"  PIPELINE_ENV       {s.env}")
     print("Tables:", ", ".join(db.list_tables()) or "(none)")
     return 0
 

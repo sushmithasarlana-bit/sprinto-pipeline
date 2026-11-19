@@ -20,9 +20,11 @@ ROOT = Path(__file__).resolve().parent.parent
 ENV = ROOT / ".env"
 REPO = "sushmithasarlana-bit/sprinto-pipeline"
 
-SECRET_KEYS = ["GEMINI_API_KEY", "HUNTER_API_KEY", "RESEND_API_KEY"]
+SECRET_KEYS = ["OPENROUTER_API_KEY", "GEMINI_API_KEY", "HUNTER_API_KEY", "RESEND_API_KEY"]
 PLAIN_KEYS = ["MY_EMAIL", "SENDER_NAME"]
-GITHUB_SECRETS = ["GEMINI_API_KEY", "HUNTER_API_KEY", "DATABASE_URL", "RESEND_API_KEY", "RESEND_FROM", "MY_EMAIL"]
+GITHUB_SECRETS = ["OPENROUTER_API_KEY", "GEMINI_API_KEY", "HUNTER_API_KEY", "DATABASE_URL", "RESEND_API_KEY",
+                  "RESEND_FROM", "MY_EMAIL"]
+GITHUB_VARIABLES = ["AI_PROVIDER"]
 
 
 def read_env() -> tuple[list[str], dict[str, str]]:
@@ -59,6 +61,24 @@ def check_gemini(key: str, model: str) -> str:
         return f"FAILED (HTTP {r.status_code}: {r.json().get('error', {}).get('status', '') if r.headers.get('content-type', '').startswith('application/json') else ''})"
     names = [m.get("name", "").removeprefix("models/") for m in r.json().get("models", [])]
     return "OK" + ("" if model in names else f" (but model '{model}' is not listed for this key)")
+
+
+def check_openrouter(key: str) -> str:
+    h = {"Authorization": f"Bearer {key}"}
+    try:
+        r = requests.get("https://openrouter.ai/api/v1/key", headers=h, timeout=20)
+        if not r.ok:
+            return f"FAILED (HTTP {r.status_code})"
+        c = requests.get("https://openrouter.ai/api/v1/credits", headers=h, timeout=20)
+    except requests.RequestException as e:
+        return f"FAILED (network: {type(e).__name__})"
+    try:
+        d = c.json()["data"]
+        left = float(d["total_credits"]) - float(d["total_usage"])
+        note = "" if left >= 0.5 else "  <- low: top up at openrouter.ai/settings/credits (about $1-2 is plenty)"
+        return f"OK (balance ${left:.2f}){note}"
+    except (KeyError, TypeError, ValueError):
+        return "OK (balance not readable with this key)"
 
 
 def check_hunter(key: str) -> str:
@@ -99,10 +119,15 @@ def main() -> int:
         values["RESEND_FROM"] = "Sprinto Outreach <onboarding@resend.dev>"
     if values.get("HUNTER_API_KEY"):
         values["HUNTER_MODE"] = "live"
+    # Google's newer "AQ." keys are refused by the Gemini API, so OpenRouter wins whenever its key is set.
+    values["AI_PROVIDER"] = "openrouter" if values.get("OPENROUTER_API_KEY") else "gemini"
 
     print("\nChecking keys (values are never printed):")
     model = values.get("GEMINI_MODEL") or "gemini-3.8-flash"
-    if values.get("GEMINI_API_KEY"):
+    print("  AI provider:", values["AI_PROVIDER"])
+    if values.get("OPENROUTER_API_KEY"):
+        print("  OpenRouter:", check_openrouter(values["OPENROUTER_API_KEY"]))
+    if values.get("GEMINI_API_KEY") and values["AI_PROVIDER"] == "gemini":
         print("  Gemini :", check_gemini(values["GEMINI_API_KEY"], model))
     if values.get("HUNTER_API_KEY"):
         print("  Hunter :", check_hunter(values["HUNTER_API_KEY"]))
@@ -116,11 +141,15 @@ def main() -> int:
     if input("\nAlso save them as GitHub Actions secrets for your repo? [Y/n]: ").strip().lower() in ("", "y", "yes"):
         for k in GITHUB_SECRETS:
             if not values.get(k):
-                print(f"  {k:<15} skipped (empty)")
+                print(f"  {k:<18} skipped (empty)")
                 continue
             r = subprocess.run(["gh", "secret", "set", k, "--repo", REPO], input=values[k], text=True,
                                capture_output=True)
-            print(f"  {k:<15} {'saved' if r.returncode == 0 else 'FAILED: ' + r.stderr.strip()[:120]}")
+            print(f"  {k:<18} {'saved' if r.returncode == 0 else 'FAILED: ' + r.stderr.strip()[:120]}")
+        for k in GITHUB_VARIABLES:
+            r = subprocess.run(["gh", "variable", "set", k, "--repo", REPO, "--body", values[k]], text=True,
+                               capture_output=True)
+            print(f"  {k:<18} {'saved as variable' if r.returncode == 0 else 'FAILED: ' + r.stderr.strip()[:120]}")
     print("\nDone. Tell Claude in chat that the keys are in (never paste the keys themselves).")
     return 0
 

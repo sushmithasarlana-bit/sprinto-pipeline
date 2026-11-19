@@ -19,6 +19,8 @@ CACHE_DIR = ROOT / ".cache"
 
 # Newest stable Flash model listed by models.list() on 2026-11-04; override with GEMINI_MODEL.
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+# The same model through OpenRouter (used when AI_PROVIDER=openrouter).
+DEFAULT_OPENROUTER_MODEL = "google/gemini-3.8-flash"
 
 
 @dataclass(frozen=True)
@@ -33,6 +35,10 @@ class Settings:
     resend_api_key: str
     resend_from: str
     sender_name: str
+    ai_provider: str = "gemini"          # "gemini" (Google Gemini API) or "openrouter" (same model via OpenRouter)
+    openrouter_api_key: str = ""
+    openrouter_model: str = DEFAULT_OPENROUTER_MODEL
+    openrouter_max_tokens: int = 4000
 
     @property
     def is_dev(self) -> bool:
@@ -108,6 +114,10 @@ def get_settings() -> Settings:
         resend_api_key=os.getenv("RESEND_API_KEY", ""),
         resend_from=os.getenv("RESEND_FROM") or "Sprinto Outreach <onboarding@resend.dev>",
         sender_name=os.getenv("SENDER_NAME", ""),
+        ai_provider=(os.getenv("AI_PROVIDER") or "gemini").strip().lower(),
+        openrouter_api_key=os.getenv("OPENROUTER_API_KEY", ""),
+        openrouter_model=os.getenv("OPENROUTER_MODEL") or DEFAULT_OPENROUTER_MODEL,
+        openrouter_max_tokens=int(os.getenv("OPENROUTER_MAX_TOKENS") or 4000),
     )
 
 

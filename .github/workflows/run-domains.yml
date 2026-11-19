@@ -32,6 +32,8 @@ jobs:
     timeout-minutes: 30
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      AI_PROVIDER: ${{ vars.AI_PROVIDER || 'gemini' }}
       HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
