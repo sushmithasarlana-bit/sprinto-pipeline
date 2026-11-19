@@ -1,6 +1,8 @@
 # Demo script (about 8 minutes)
 
-Live dashboard: https://sprinto-outreach-delta.vercel.app · Slides: the "Sprinto Outreach Pipeline" deck (13 slides, speaker notes on each).
+> **Note for this copy:** the company names and counts below (Pearler, Namespace, Adfin, Niural, "pool 313", learnings) come from the reference build's database. This copy has its own data: use **Griffin** (qualified, CTO found, email approved and delivered) and **Model ML** (qualified, then flagged: Hunter had no contacts) from run 1. See [RECREATION.md](RECREATION.md).
+
+Live dashboard: https://sprinto-outreach-pipeline-xi.vercel.app · Slides: the "Sprinto Outreach Pipeline" deck (13 slides, speaker notes on each).
 
 Open the dashboard in one tab before you start. Have a terminal in the repo ready for the optional live command at the end.
 

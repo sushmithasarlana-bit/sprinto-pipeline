@@ -1,6 +1,20 @@
 # Sprinto cold outreach pipeline
 
-**Live dashboard:** https://sprinto-outreach-delta.vercel.app
+**Live dashboard:** https://sprinto-outreach-pipeline-xi.vercel.app
+
+> **This is an independent build** of [varunagarwal-hub/sprinto-pipeline](https://github.com/varunagarwal-hub/sprinto-pipeline) (MESA Term 2 AI Case 2), with its own repo, Neon database, Vercel project and keys. What was audited, changed, tested and what is still limited: **[docs/RECREATION.md](docs/RECREATION.md)**.
+>
+> **Quick start on a Mac** (the Windows steps further down are the reference's):
+> ```bash
+> uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt
+> cp .env.example .env                       # DATABASE_URL goes here
+> .venv/bin/python scripts/set_keys.py       # hidden prompts for Gemini/OpenRouter, Hunter, Resend; checks each key
+> .venv/bin/python main.py migrate && .venv/bin/python main.py check
+> .venv/bin/python main.py stage1            # funding news -> ranked pool (no keys needed)
+> .venv/bin/python main.py run --target-qualified 2 --max-batches 1
+> .venv/bin/python -m pytest -q              # 122 tests
+> cd web && npm ci && npm run dev            # dashboard; web/.env.local needs DATABASE_URL (+ RESEND_API_KEY, RESEND_FROM, MY_EMAIL to send)
+> ```
 
 This pipeline finds recently funded SaaS companies, works out which ones need Sprinto, picks the right person to contact, and drafts a personalised cold email. A human approves each email before it is sent. Every decision (why this company, why this person, why this email) can be traced to evidence stored in Neon: a verbatim quote, its source URL and a date.
 
@@ -38,6 +52,8 @@ The `.env` file holds:
 | Key | Purpose |
 |---|---|
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Gemini (`google-genai`). Defaults to `gemini-3.8-flash`, the newest stable Flash model on 2026-11-04 |
+| `AI_PROVIDER` | `gemini` (default) or `openrouter`: the same Gemini Flash model through OpenRouter, for Google keys the Gemini API refuses |
+| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_MAX_TOKENS`, `OPENROUTER_REASONING` | Only for `AI_PROVIDER=openrouter`. Defaults: `google/gemini-3.8-flash`, 4000, `low` |
 | `HUNTER_API_KEY`, `HUNTER_MODE` | `mock` (the default) reads `fixtures/hunter_mock.json` and spends nothing. `live` makes real searches |
 | `DATABASE_URL` | Neon Postgres |
 | `RESEND_API_KEY`, `RESEND_FROM` | Resend email. `onboarding@resend.dev` works without a verified domain |
@@ -70,7 +86,7 @@ Single-step commands, useful for demos and debugging:
 | `main.py learn` | Distil captured feedback into learnings |
 | `main.py sync` | Run queued research / redrafts / PoCs from the web, backfill and learn |
 
-Tests: `.venv/Scripts/python -m pytest -q` runs 98 tests covering the Stage 1 regexes and gates, quote verification, qualifier rules, PoC picking and the email validator.
+Tests: `.venv/Scripts/python -m pytest -q` runs 122 tests in this copy (the reference text said 98) covering the Stage 1 regexes and gates, quote verification, qualifier rules, PoC picking and the email validator.
 
 ## How each decision is made
 
@@ -150,10 +166,10 @@ This rejects same-name companies (moment.com is not the payments company Moment)
 
 ### Run on domains from the web
 The dashboard starts the `run-domains.yml` GitHub Actions workflow. Each run is limited to 3 domains, with at most 3 runs a day, and Hunter falls back to mock mode when fewer than 15 searches are left. Setup:
-1. In GitHub, go to Settings → Developer settings → Fine-grained tokens and create a token for `varunagarwal-hub/sprinto-pipeline` with **Actions: Read and write** permission.
-2. In Vercel, open sprinto-outreach → Settings → Environment Variables and add `GITHUB_DISPATCH_TOKEN` for Production. Then redeploy (or push to `main`).
+1. In GitHub, go to Settings → Developer settings → Fine-grained tokens and create a token for `sushmithasarlana-bit/sprinto-pipeline` with **Actions: Read and write** permission.
+2. In Vercel, open sprinto-outreach-pipeline → Settings → Environment Variables and add `GITHUB_DISPATCH_TOKEN` for Production. Then redeploy.
 
-The workflows need these repo secrets, which are already set: `GEMINI_API_KEY`, `HUNTER_API_KEY`, `DATABASE_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `MY_EMAIL`.
+The workflows need these repo secrets: `GEMINI_API_KEY`, `HUNTER_API_KEY`, `DATABASE_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `MY_EMAIL` (plus `OPENROUTER_API_KEY` and the repo variable `AI_PROVIDER` when using OpenRouter). `scripts/set_keys.py` can save them.
 
 ## Web dashboard (`web/`, Next.js 16 on Vercel)
 Next.js + Tailwind + shadcn, styled after Sprinto's visual language: plum `#650A41` on warm paper, Instrument Sans, pill-shaped controls, and an original logo mark. The app is a case-study build and is not affiliated with Sprinto. It uses Magic UI components (number tickers, animated beams, shimmer buttons) and GSAP animations (page transitions, the pipeline tracker, sidebar and tab indicators). It also has a Ctrl/⌘K command palette, an email-client view for drafts with hover evidence on every claim, and a decision-trail timeline for each company. It reads Neon directly with `@neondatabase/serverless`; every mutation is a server action.
@@ -169,7 +185,7 @@ Next.js + Tailwind + shadcn, styled after Sprinto's visual language: plum `#650A
 
 Vercel can't crawl sites or run the Python pipeline, so actions that need research are **queued** (`companies.queued_action`) and picked up by `python main.py sync` (and at the start of every `run`). Approve & send, ratings, outcomes and overrides take effect immediately.
 
-Deploys: the Vercel project `sprinto-outreach` is connected to this repo with Root Directory `web`, so every push to `main` redeploys production and other branches get preview URLs.
+Deploys: in this copy the Vercel project `sprinto-outreach-pipeline` is deployed from `web/` with the CLI (`vercel deploy --prod --yes --scope sush25`); it is not connected to git, so redeploy after pushing. (The reference's project was git-connected.)
 
 Vercel env vars: `DATABASE_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `MY_EMAIL`, `RESEND_WEBHOOK_SECRET`, and optionally `DASHBOARD_PASSWORD`.
 
