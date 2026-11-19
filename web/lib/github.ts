@@ -6,7 +6,7 @@ import "server-only";
  *   - discover: weekly-run.yml, the main mode (funding news -> shortlist -> research -> contact -> email)
  *   - domains:  run-domains.yml, the same pipeline on a list of domains you give it
  */
-const REPO = process.env.GITHUB_REPO || "varunagarwal-hub/sprinto-pipeline";
+const REPO = process.env.GITHUB_REPO || "sushmithasarlana-bit/sprinto-pipeline";
 export const WORKFLOWS = { discover: "weekly-run.yml", domains: "run-domains.yml" } as const;
 export type RunMode = keyof typeof WORKFLOWS;
 

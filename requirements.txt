@@ -4,9 +4,8 @@ requests>=2.31
 beautifulsoup4>=4.12
 psycopg[binary]>=3.2
 python-dotenv>=1.0
-google-api-python-client>=2.100
-google-auth-oauthlib>=1.2
-google-auth-httplib2>=0.2
 streamlit>=1.38
 rapidfuzz>=3.6
 pytest>=8.0
+# Intel Macs have no prebuilt cryptography 50 wheel; 48 installs without a Rust toolchain
+cryptography<49; sys_platform == "darwin" and platform_machine == "x86_64"
