@@ -127,10 +127,14 @@ export function PillLink({ href, children, variant = "outline" }: { href: string
 export const pct = (x: number | null | undefined, digits = 0) =>
   x == null || Number.isNaN(x) ? "—" : `${(x * 100).toFixed(digits)}%`;
 
+/** One fixed zone for server and browser alike: Vercel renders in UTC, which put every time 5.5 h behind
+ *  for an India-based reviewer, and a browser-dependent zone would mismatch the server render. */
+export const DISPLAY_TIME_ZONE = process.env.NEXT_PUBLIC_TIME_ZONE || "Asia/Kolkata";
+
 export function fmtDate(d: string | Date | null | undefined, withTime = false) {
   if (!d) return "—";
   const dt = typeof d === "string" ? new Date(d) : d;
   return dt.toLocaleString("en-GB", withTime
-    ? { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }
-    : { day: "2-digit", month: "short", year: "numeric" });
+    ? { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: DISPLAY_TIME_ZONE }
+    : { day: "2-digit", month: "short", year: "numeric", timeZone: DISPLAY_TIME_ZONE });
 }

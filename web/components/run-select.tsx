@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { DISPLAY_TIME_ZONE } from "@/components/common";
 
 export function RunSelect({ runs, current }: { runs: { id: number; started_at: string; status: string }[]; current: number | null }) {
   const router = useRouter();
@@ -19,7 +20,7 @@ export function RunSelect({ runs, current }: { runs: { id: number; started_at: s
       >
         {runs.map((r) => (
           <option key={r.id} value={r.id}>
-            Run {r.id} · {new Date(r.started_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} · {r.status}
+            Run {r.id} · {new Date(r.started_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", timeZone: DISPLAY_TIME_ZONE })} · {r.status}
           </option>
         ))}
       </select>
