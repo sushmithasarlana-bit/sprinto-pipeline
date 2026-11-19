@@ -4,8 +4,8 @@ Gemini only extracts and writes. It never makes a pipeline decision.
 
 Two ways to reach the same Gemini Flash model (AI_PROVIDER in .env):
   gemini      Google's Gemini API with GEMINI_API_KEY (the default, as in the reference build)
-  openrouter  Gemini Flash through OpenRouter with OPENROUTER_API_KEY. Added because Google's newer
-              "AQ." keys are refused by the Gemini API (401 ACCESS_TOKEN_TYPE_UNSUPPORTED).
+  openrouter  Gemini Flash through OpenRouter with OPENROUTER_API_KEY. A fallback for Google keys the
+              Gemini API refuses (401 ACCESS_TOKEN_TYPE_UNSUPPORTED).
 """
 from __future__ import annotations
 

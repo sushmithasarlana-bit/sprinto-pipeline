@@ -119,15 +119,17 @@ def main() -> int:
         values["RESEND_FROM"] = "Sprinto Outreach <onboarding@resend.dev>"
     if values.get("HUNTER_API_KEY"):
         values["HUNTER_MODE"] = "live"
-    # Google's newer "AQ." keys are refused by the Gemini API, so OpenRouter wins whenever its key is set.
-    values["AI_PROVIDER"] = "openrouter" if values.get("OPENROUTER_API_KEY") else "gemini"
+    # Prefer Google's Gemini API (as in the reference); OpenRouter only if its key is set and Gemini's fails.
+    gemini_ok = bool(values.get("GEMINI_API_KEY")) and \
+        check_gemini(values["GEMINI_API_KEY"], values.get("GEMINI_MODEL") or "gemini-3.8-flash").startswith("OK")
+    values["AI_PROVIDER"] = "gemini" if gemini_ok or not values.get("OPENROUTER_API_KEY") else "openrouter"
 
     print("\nChecking keys (values are never printed):")
     model = values.get("GEMINI_MODEL") or "gemini-3.8-flash"
     print("  AI provider:", values["AI_PROVIDER"])
     if values.get("OPENROUTER_API_KEY"):
         print("  OpenRouter:", check_openrouter(values["OPENROUTER_API_KEY"]))
-    if values.get("GEMINI_API_KEY") and values["AI_PROVIDER"] == "gemini":
+    if values.get("GEMINI_API_KEY"):
         print("  Gemini :", check_gemini(values["GEMINI_API_KEY"], model))
     if values.get("HUNTER_API_KEY"):
         print("  Hunter :", check_hunter(values["HUNTER_API_KEY"]))
